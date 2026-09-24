@@ -4,7 +4,7 @@ Tracks job applications and runs an LLM agent that scores each job description a
 
 ## The problem
 
-Running 20+ live applications across LinkedIn, company sites, and referrals means losing track of status, forgetting to follow up, and — worst of all — applying to roles with a real skills gap without realising it until the rejection. This tracks applications properly and tells you, before you apply, whether a role is a strong fit, a stretch, or a skip.
+Running 20+ live applications across LinkedIn, company sites, and referrals means losing track of status, forgetting to follow up, and worst of all applying to roles with a real skills gap without realising it until the rejection. This tracks applications properly and tells you, before you apply, whether a role is a strong fit, a stretch, or a skip.
 
 ## Architecture
 
