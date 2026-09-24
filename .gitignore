@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+.env
+*.db
+.coverage
+htmlcov/
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+docker-compose.yml
+Dockerfile
