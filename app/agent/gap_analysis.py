@@ -1,5 +1,5 @@
 """
-Job-description gap analysis agent, built with LangGraph.
+Job-description gap analysis agent
 
 Two nodes, run in sequence:
 
@@ -24,7 +24,7 @@ from langchain_anthropic import ChatAnthropic
 from app.config import settings
 
 
-# ─── Structured outputs ──────────────────────────────────────────────────────
+
 
 class ExtractedRequirements(BaseModel):
     required_skills: list[str] = Field(description="Must-have skills/technologies")

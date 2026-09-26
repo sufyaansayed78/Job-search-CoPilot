@@ -13,5 +13,5 @@ celery_app.conf.update(
     task_track_started=True,
 )
 
-# Ensure tasks module is registered
-import app.tasks  # noqa: E402,F401
+# Ensuree tasks module is registered
+import app.tasks 
