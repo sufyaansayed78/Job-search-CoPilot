@@ -1,0 +1,47 @@
+.app-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.app-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+}
+.app-row:last-child { border-bottom: none; }
+
+.app-row__title {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.app-row__followup {
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.status-select {
+  width: auto;
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 7px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+}
+
+.status-select--offer { background: var(--fit-strong-bg); color: var(--fit-strong); border-color: transparent; }
+.status-select--rejected,
+.status-select--withdrawn { background: var(--fit-skip-bg); color: var(--fit-skip); border-color: transparent; }
+.status-select--phone_screen,
+.status-select--technical,
+.status-select--onsite { background: var(--fit-stretch-bg); color: var(--fit-stretch); border-color: transparent; }
