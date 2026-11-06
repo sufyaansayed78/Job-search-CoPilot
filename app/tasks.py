@@ -1,6 +1,8 @@
 import logging
 from celery import shared_task
-
+from celery.exceptions import SoftTimeLimitExceeded
+from app.services.gmail import run_gmail_sync, mark_job_failed
+from app.celery_app import celery_app
 logger = logging.getLogger(__name__)
 
 
@@ -53,3 +55,17 @@ def analyze_job_posting_task(self, job_posting_id: str):
         raise self.retry(exc=exc)
     finally:
         db.close()
+
+
+@celery_app.task(
+    bind=True,
+    autoretry_for=(HttpError, ConnectionError),
+    retry_backoff=True,          # 1s, 2s, 4s, ...
+    retry_backoff_max=60,
+    max_retries=3,
+)
+def gmail_sync_task(self, job_id: str):
+    try:
+        run_gmail_sync(job_id)
+    except SoftTimeLimitExceeded:
+        mark_job_failed(job_id, "Sync took too long, try again")

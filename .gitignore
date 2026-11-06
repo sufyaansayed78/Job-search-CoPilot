@@ -10,3 +10,4 @@ dist/
 build/
 docker-compose.yml
 Dockerfile
+client_secret.json

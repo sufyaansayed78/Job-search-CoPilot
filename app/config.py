@@ -3,7 +3,7 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     # Core
-    SECRET_KEY: str = "job-search-copilot-secret-change-me"
+    SECRET_KEY: str = "4r734rn9784b38b0478b47c4"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
 
@@ -12,7 +12,7 @@ class Settings(BaseSettings):
 
     # Celery / Redis
     REDIS_URL: str = "redis://redis:6379/0"
-
+    FERNET_KEY : str = "xbq4rt43ir4783r48r7749r"
     # LLM
     ANTHROPIC_API_KEY: str = ""
     # Haiku is deliberate here, not a placeholder: gap analysis is a background

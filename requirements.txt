@@ -18,3 +18,9 @@ pytest==8.1.1
 pytest-cov==5.0.0
 gunicorn==21.2.0
 python-dotenv==1.0.1
+google_auth_oauthlib==1.0.0
+cryptography==41.0.3
+google-api-python-client
+google-auth
+google-auth-httplib2
+cryptography

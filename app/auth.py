@@ -51,3 +51,5 @@ def get_current_user(
     if user is None or not user.is_active:
         raise credentials_exc
     return user
+
+

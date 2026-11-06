@@ -1,4 +1,4 @@
- import uuid
+import uuid
 import enum
 from datetime import datetime, timezone
 from sqlalchemy import (
@@ -118,3 +118,22 @@ class GapAnalysis(Base):
     created_at = Column(DateTime(timezone=True), default=_now)
 
     job_posting = relationship("JobPosting", back_populates="analyses")
+
+class GmailCredential(Base):
+    __tablename__ = "gmail_credentials"
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    refresh_token_enc: Mapped[str]            # Fernet-encrypted
+    last_synced_at: Mapped[datetime | None]
+
+
+class SyncJob(Base):
+    __tablename__ = "sync_jobs"
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    status: Mapped[str] = mapped_column(default="pending")
+    emails_checked: Mapped[int] = mapped_column(default=0)
+    updates_applied: Mapped[int] = mapped_column(default=0)
+    suggestions_created: Mapped[int] = mapped_column(default=0)
+    error: Mapped[str | None]
+    created_at: Mapped[datetime] = mapped_column(default=func.now())
+
