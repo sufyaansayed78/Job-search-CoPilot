@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, BackgroundTasks
 from sqlalchemy import select
 from app.models import GmailCredential, SyncJob
 from sqlalchemy.orm import Session
-from app.services.gmail import fernet 
+from app.services_imp.gmail import fernet 
 
 router = APIRouter(prefix="/services", tags=["services"])
 

@@ -1,0 +1,39 @@
+
+
+Email Object : 
+
+{
+    "id": "18abc123",
+    "threadId": "18abc123",
+    "labelIds": [
+        "INBOX",
+        "UNREAD"
+    ],
+    "snippet": "Thank you for applying to our Software Engineer position...",
+    "historyId": "1234567",
+    "internalDate": "1794000000000",
+    "payload": {
+        "mimeType": "text/plain",
+        "headers": [
+            {
+                "name": "From",
+                "value": "recruiter@company.com"
+            },
+            {
+                "name": "To",
+                "value": "candidate@gmail.com"
+            },
+            {
+                "name": "Subject",
+                "value": "Software Engineer Interview Invitation"
+            }
+        ],
+        "body": {
+            "size": 150,
+            "data": "VGhhbmsgeW91IGZvciBhcHBseWluZy4uLg"
+        }
+    },
+    "sizeEstimate": 1200
+}
+
+===================================================================================================

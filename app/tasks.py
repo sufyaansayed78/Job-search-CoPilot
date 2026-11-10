@@ -1,7 +1,7 @@
 import logging
 from celery import shared_task
 from celery.exceptions import SoftTimeLimitExceeded
-from app.services.gmail import run_gmail_sync, mark_job_failed
+from app.services_imp.gmail import run_gmail_sync, mark_job_failed
 from app.celery_app import celery_app
 logger = logging.getLogger(__name__)
 

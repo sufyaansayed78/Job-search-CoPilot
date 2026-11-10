@@ -45,7 +45,7 @@ class Company(Base):
     website = Column(String(255), default="")
     notes = Column(Text, default="")
     created_at = Column(DateTime(timezone=True), default=_now)
-
+    
     owner = relationship("User", back_populates="companies")
     job_postings = relationship("JobPosting", back_populates="company", cascade="all, delete-orphan")
 
@@ -62,7 +62,7 @@ class JobPosting(Base):
     raw_description = Column(Text, nullable=False)  # the JD, pasted in by the user
     analysis_status = Column(String(20), default="not_started")  # not_started, pending, done, failed
     created_at = Column(DateTime(timezone=True), default=_now)
-
+    role = Column(String(100), default="")  # e.g. "Software Engineer", "Data Scientist"
     owner = relationship("User", back_populates="job_postings")
     company = relationship("Company", back_populates="job_postings")
     applications = relationship("Application", back_populates="job_posting", cascade="all, delete-orphan")

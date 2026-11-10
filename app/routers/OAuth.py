@@ -8,7 +8,7 @@ from app.database import get_db
 from itsdangerous import URLSafeSerializer
 from app.models import GmailCredential
 from cryptography.fernet import Fernet
-from app.services.gmail import fernet
+from app.services_imp.gmail import fernet
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 

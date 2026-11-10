@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from google.auth.exceptions import RefreshError
-from app.services.gmail import build_gmail_service, fetch_job_emails, process_email
+from app.services_imp.gmail import build_gmail_service, fetch_job_emails, process_email
 
 
 
