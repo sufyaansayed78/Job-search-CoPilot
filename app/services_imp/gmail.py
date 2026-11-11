@@ -1,3 +1,5 @@
+
+import logging
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
@@ -6,30 +8,54 @@ from app.config import settings
 from app.models import Application, Company, JobPosting
 from app.services_imp.LLM import get_llm
 from app.services_imp.pydantic_op_models import EmailClassification, UpdateApplicationFromEmail, AddJobPostingFromEmail
+
+from bs4 import BeautifulSoup
+import re
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 
 fernet = Fernet(settings.FERNET_KEY.encode())
 
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
+
 def build_gmail_service(cred):
-    # 1. Decrypt the refresh token from the database
-    refresh_token = fernet.decrypt(
-        cred.refresh_token_enc.encode()
-    ).decode()
 
-    # 2. Create Google OAuth credentials
-    credentials = Credentials(
-        token=None,
-        refresh_token=refresh_token,
-        token_uri="https://oauth2.googleapis.com/token",
-        client_id=settings.GOOGLE_CLIENT_ID,
-        client_secret=settings.GOOGLE_CLIENT_SECRET,
-        scopes=SCOPES,
-    )
+    try:
+        refresh_token = fernet.decrypt(
+            cred.refresh_token_enc.encode()
+        ).decode()
+        print("1. Refresh token decrypted successfully")
 
-    # 3. Exchange refresh token for a fresh access token
-    credentials.refresh(Request())
+    except Exception as e:
+        print("Decryption failed:", repr(e))
+        raise
 
-    # 4. Build a Gmail API client
+    try:
+        credentials = Credentials(
+            token=None,
+            refresh_token=refresh_token,
+            token_uri="https://oauth2.googleapis.com/token",
+            client_id=settings.GOOGLE_CLIENT_ID,
+            client_secret=settings.GOOGLE_CLIENT_SECRET,
+            scopes=SCOPES,
+        )
+        print("2. Credentials object created successfully")
+
+    except Exception as e:
+        print("Credentials construction failed:", repr(e))
+        raise
+
+    try:
+        credentials.refresh(Request())
+        print("3. Access token refreshed successfully")
+
+    except Exception as e:
+        print("Token refresh failed:", repr(e))
+        raise
+
     service = build(
         "gmail",
         "v1",
@@ -135,22 +161,28 @@ def update_application_from_email(db,user_id ,email,classification):
 
     
     #comp_name = normalize_company_name(email['from'])
-    if classification.job_category == "job_application":   
+    if classification.job_category == "job_application":  
+        logging.info(f"Email classified as job application. Extracting application update info for user {user_id}") 
         applications =  db.query(Application).filter(Application.user_id == user_id).all()
         company_map = {app.id : (app.job_posting.role,app.job_posting.company.name) for app in applications}
-        llm = llm.with_structured_output(UpdateApplicationFromEmail)
-        update_data = llm.invoke(
-            f"""
-            Extract the following information about a current job application from the email and by using company_map which maps application IDs to their corresponding company names and roles. :
-            - status: The new status of the application, if applicable
-            - follow_up_date: The follow-up date and time mentioned in the email, in ISO 8601 format. Return null if not mentioned.
-            - Notes: Any additional notes or information extracted from the email that may be relevant to the application. Return null if not applicable.
-            - application ID: The UUID of the matching job application. Use the company_map to find the correct application id based on the company name and role extracted from the email. Return null if not applicable.
-            Here is the email content:
-            Subject: {email['subject']}
-            Body: {email['body']}
-            Here is the company map: {company_map}
-            """)
+        try :
+            llm = llm.with_structured_output(UpdateApplicationFromEmail)
+            update_data = llm.invoke(
+                f"""
+                Extract the following information about a current job application from the email and by using company_map which maps application IDs to their corresponding company names and roles. :
+                - status: The new status of the application, if applicable
+                - follow_up_date: The follow-up date and time mentioned in the email, in ISO 8601 format. Return null if not mentioned.
+                - Notes: Any additional notes or information extracted from the email that may be relevant to the application. Return null if not applicable.
+                - application ID: The UUID of the matching job application. Use the company_map to find the correct application id based on the company name and role extracted from the email. Return null if not applicable.
+                Here is the email content:
+                Subject: {email['subject']}
+                Body: {email['body']}
+                Here is the company map: {company_map}
+                """)
+        except Exception as e:
+            print("Exception:", repr(e))
+            print("Error body:", getattr(e, "body", None))
+            raise
         
         application = db.query(Application).filter(Application.id == update_data.application_id).first()
         application.status = update_data.status
@@ -159,63 +191,93 @@ def update_application_from_email(db,user_id ,email,classification):
         db.commit()
         db.refresh(application)
     else :
+        logging.info(f"Email classified as job posting. Extracting job posting info for user {user_id}")
         # If the email is related to a job posting, we can extract the company name and role from the email
-        job_postings = db.query(JobPosting).filter(JobPosting.user_id == user_id).all()
-        company_names = [posting.company.name for posting in job_postings]
-        llm = llm.with_structured_output(UpdateApplicationFromEmail)
-        update_data = llm.invoke(
-            f"""
-            Extract the following information about a job posting from the email and by using company_names which is a list of company names already present in the user's job postings database :
-            - company_name: The company name extracted from the email of the job posting
-            - role: The role or position extracted from the email
-            - title: The title of the job posting extracted from the email
-            - url: The URL of the job posting extracted from the email
-            - raw_description: The raw description of the job posting extracted from the email
-            Here is the list of company names: {company_names}
-            Here is the email content:
-            Subject: {email['subject']}
-            Body: {email['body']}
-            """)
-        company = db.query(Company).filter(Company.user_id == user_id, Company.name == update_data.company_name).first()
-        if not company:
-            company = Company(user_id=user_id, name=update_data.company_name)
-            db.add(company)
-            db.commit()
-            db.refresh(company)
-        db.add(JobPosting(
-            user_id=user_id,
-            company_id=company.id,
-            title=update_data.title,
-            url=update_data.url,
-            raw_description=update_data.raw_description,
-            role=update_data.role,
-            source="email",
-            analysis_status="not_started"
+        try : 
+            job_postings = db.query(JobPosting).filter(JobPosting.user_id == user_id).all()
+            company_names = [posting.company.name for posting in job_postings]
+            llm = llm.with_structured_output(AddJobPostingFromEmail)
+            update_data = llm.invoke(
+                f"""
+                Extract the following information about a job posting from the email and by using company_names which is a list of company names already present in the user's job postings database :
+                - company_name: The company name extracted from the email of the job posting
+                - role: The role or position extracted from the email
+                - title: The title of the job posting extracted from the email
+                - url: The URL of the job posting extracted from the email
+                - raw_description: The raw description of the job posting extracted from the email
+                Here is the list of company names: {company_names}
+                Here is the email content:
+                Subject: {email['subject']}
+                Body: {email['body']}
+                """)
+            company = db.query(Company).filter(Company.user_id == user_id, Company.name == update_data.company_name).first()
+            if not company:
+                company = Company(user_id=user_id, name=update_data.company_name)
+                db.add(company)
+                db.commit()
+                db.refresh(company)
+            db.add(JobPosting(
+                user_id=user_id,
+                company_id=company.id,
+                title=update_data.title,
+                url=update_data.url,
+                raw_description=update_data.raw_description,
+                role=update_data.role,
+                source="email",
+                analysis_status="not_started"
 
-        ))
-        db.commit()
+            ))
+            db.commit()
+        except Exception as e:
+            print("Exception:", repr(e))
+            print("Error body:", getattr(e, "body", None))
+            raise
 
 
     
 
 def classify_email(email):
-
+    logging.info(f"Classifying email: {email['subject']} from {email['from']}")
     llm = get_llm()
-    llm = llm.with_structured_output(EmailClassification)
-    result = llm.invoke(
-        f"""
-        Determine whether the email is related to a job posting
-        or a job application.
-        Subject: {email['subject']}
-        Body: {email['body']}
-        Return job_category as:
-        - True if related to a job posting or application.
-        - False otherwise.
-        """
-    )
-
+    try :
+        logging.info(f"Using LLM: {llm}")
+        llm = llm.with_structured_output(EmailClassification)
+        result = llm.invoke(
+            f"""
+            Determine whether the email is related to a job posting
+            or a job application.
+            Subject: {email['subject']}
+            Body: {email['body']}
+            Return job_category as:
+            - True if related to a job posting or application.
+            - False otherwise.
+            """
+        )
+    except Exception as e:
+        print("Exception:", repr(e))
+        print("Error body:", getattr(e, "body", None))
+        raise
+    logging.info(f"Classification result: {result}")
     return result
 
+
+
+def extract_email_body_2(html_content):
+
+    soup = BeautifulSoup(html_content, "html.parser")
+
+    # Remove unnecessary HTML elements
+    for element in soup(["style", "script", "head", "meta", "title"]):
+        element.decompose()
+
+    # Extract readable text
+    text = soup.get_text(separator="\n")
+
+    # Remove excessive whitespace and blank lines
+    text = re.sub(r'[ \t]+', ' ', text)
+    text = re.sub(r'\n\s*\n+', '\n\n', text)
+
+    return text.strip()
 def parse_email(msg):
     headers = {h["name"].lower(): h["value"] for h in msg.get("payload", {}).get("headers", [])}
 
@@ -227,17 +289,18 @@ def parse_email(msg):
         "to": headers.get("to", ""),
         "date": headers.get("date", ""),
         "snippet": msg.get("snippet", ""),
-        "body": extract_email_body(msg.get("payload", {})),
+        "body": extract_email_body_2(extract_email_body(msg.get("payload", {}))),
     }
 
     return email
 
 
 def process_email(db, job, msg):
-
+    
     # 1. Parse Gmail's response into a clean dictionary
     email = parse_email(msg)
-
+    logging.info(f"Processing email: {email['subject']} from {email['from']}")
+    
     # 2. Classify the email
     classification = classify_email(email)
     if not classification.email_category:

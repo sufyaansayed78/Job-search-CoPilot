@@ -11,3 +11,5 @@ build/
 docker-compose.yml
 Dockerfile
 client_secret.json
+test.py
+Gmail_API_objects.txt

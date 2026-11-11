@@ -1,9 +1,9 @@
-import datetime
+from datetime import datetime
 from typing import List, Literal, Optional
 
 from uuid import UUID
 from app.models import ApplicationStatus
-from pydantic import BseModel, Field
+from pydantic import BaseModel, Field
 
 
 class EmailClassification(BaseModel):

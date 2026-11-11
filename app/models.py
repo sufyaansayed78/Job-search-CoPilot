@@ -2,9 +2,9 @@ import uuid
 import enum
 from datetime import datetime, timezone
 from sqlalchemy import (
-    Column, String, Text, Boolean, DateTime, ForeignKey, Float, Enum, JSON,
+    Column, String, Text, Boolean, DateTime, ForeignKey, Float, Enum, JSON,func
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Mapped,mapped_column, relationship
 from app.database import Base
 from app.db_types import GUID
 

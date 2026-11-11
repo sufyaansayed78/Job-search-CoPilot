@@ -8,6 +8,11 @@ from sqlalchemy import select
 from app.models import GmailCredential, SyncJob
 from sqlalchemy.orm import Session
 from app.services_imp.gmail import fernet 
+from app.tasks import gmail_sync_task
+import redis
+import uuid
+
+
 
 router = APIRouter(prefix="/services", tags=["services"])
 

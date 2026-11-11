@@ -69,3 +69,4 @@ def gmail_sync_task(self, job_id: str):
         run_gmail_sync(job_id)
     except SoftTimeLimitExceeded:
         mark_job_failed(job_id, "Sync took too long, try again")
+        
