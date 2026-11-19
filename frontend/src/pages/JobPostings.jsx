@@ -21,13 +21,56 @@ export function JobPostings() {
   const [trackedIds, setTrackedIds] = useState(new Set());
   const pollRef = useRef(null);
 
-  function refresh() {
-    return Promise.all([api.listPostings(), api.listCompanies()]).then(([p, c]) => {
-      setPostings(p);
-      setCompanies(c);
-      if (c.length && !form.company_id) setForm((f) => ({ ...f, company_id: c[0].id }));
-    }).finally(() => setLoading(false));
+  async function refresh() {
+  try {
+    const [p, c] = await Promise.all([
+      api.listPostings(),
+      api.listCompanies()
+    ]);
+
+    setPostings(p);
+    setCompanies(c);
+
+    if (c.length && !form.company_id) {
+      setForm((f) => ({
+        ...f,
+        company_id: c[0].id
+      }));
+    }
+
+    // Fetch persisted analysis results for completed postings
+    const completed = p.filter(
+      (posting) => posting.analysis_status === "done"
+    );
+
+    const results = await Promise.all(
+      completed.map(async (posting) => {
+        try {
+          const result = await api.getAnalysis(posting.id);
+
+          return result.pending
+            ? null
+            : [posting.id, result];
+        } catch (err) {
+          console.error(
+            `Could not load analysis for ${posting.id}:`,
+            err
+          );
+          return null;
+        }
+      })
+    );
+
+    setAnalyses(
+      Object.fromEntries(results.filter(Boolean))
+    );
+
+  } catch (err) {
+    console.error("Refresh failed:", err);
+  } finally {
+    setLoading(false);
   }
+}
 
   useEffect(() => {
     refresh();

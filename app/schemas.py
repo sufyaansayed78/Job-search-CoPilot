@@ -123,3 +123,10 @@ class DashboardStats(BaseModel):
     response_rate_pct: float  # (phone_screen or later) / applied
     avg_match_score_applied: Optional[float]
     upcoming_follow_ups: int
+
+
+
+class AnalysisPendingOut(BaseModel):
+    pending: bool = True
+    status: str
+

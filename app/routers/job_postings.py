@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import JobPosting, Company, User
-from app.schemas import JobPostingCreate, JobPostingOut, GapAnalysisOut
+from app.schemas import JobPostingCreate, JobPostingOut, GapAnalysisOut , AnalysisPendingOut
 from app.auth import get_current_user
 from app.tasks import analyze_job_posting_task
 import logging 
@@ -82,16 +82,24 @@ def trigger_analysis(
     return {"detail": "Analysis started.", "job_posting_id": str(posting.id)}
 
 
-@router.get("/{posting_id}/analysis", response_model=GapAnalysisOut)
+@router.get("/{posting_id}/analysis", response_model=GapAnalysisOut|AnalysisPendingOut)
 def get_latest_analysis(
     posting_id: uuid.UUID,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Session = Depends(get_db),
 ):
     posting = _get_owned_posting(posting_id, current_user, db)
-    if not posting.analyses:
-        raise HTTPException(
-            status_code=status.HTTP_202_ACCEPTED,
-            detail=f"Analysis status: {posting.analysis_status}. Not ready yet.",
+    
+    if posting.analyses:
+        return posting.analyses[0]
+
+    if posting.analysis_status in ("pending", "not_started"):
+        return AnalysisPendingOut(
+            pending=True,
+            status=posting.analysis_status
         )
-    return posting.analyses[0]  # most recent, ordered in the relationship
+
+    raise HTTPException(
+        status_code=500,
+        detail="Analysis failed or completed without a saved result."
+    )  # most recent, ordered in the relationship
