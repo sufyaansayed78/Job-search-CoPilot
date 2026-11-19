@@ -1,5 +1,5 @@
 
-from http.client import HTTPException
+from fastapi import HTTPException
 
 from app.auth import get_current_user
 from app.database import get_db
@@ -11,11 +11,15 @@ from app.services_imp.gmail import fernet
 from app.tasks import gmail_sync_task
 import redis
 import uuid
-
+from app.config import settings
 
 
 router = APIRouter(prefix="/services", tags=["services"])
 
+r = redis.Redis.from_url(
+    settings.REDIS_URL,
+    decode_responses=True
+)
 @router.post("/gmail/sync", status_code=202)
 def start_sync(user=Depends(get_current_user), db: Session = Depends(get_db)):
     cred = db.get(GmailCredential, user.id)
@@ -26,7 +30,7 @@ def start_sync(user=Depends(get_current_user), db: Session = Depends(get_db)):
         raise HTTPException(409, "Sync already in progress")
     job = SyncJob(user_id=user.id)
     db.add(job); db.commit()
-    gmail_sync_task.delay(str(job.id))
+    gmail_sync_task.delay(job.id)
     return {"job_id": str(job.id)}
 
 

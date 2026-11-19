@@ -8,9 +8,12 @@ from app.models import JobPosting, Company, User
 from app.schemas import JobPostingCreate, JobPostingOut, GapAnalysisOut
 from app.auth import get_current_user
 from app.tasks import analyze_job_posting_task
-
+import logging 
 router = APIRouter(prefix="/job-postings", tags=["job-postings"])
-
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 def _get_owned_posting(posting_id: uuid.UUID, current_user: User, db: Session) -> JobPosting:
     posting = db.query(JobPosting).filter(
@@ -74,7 +77,7 @@ def trigger_analysis(
     posting = _get_owned_posting(posting_id, current_user, db)
     posting.analysis_status = "pending"
     db.commit()
-
+    logging.info(f"Starting Analysis for job_posting_id {posting.id}")
     analyze_job_posting_task.delay(str(posting.id))
     return {"detail": "Analysis started.", "job_posting_id": str(posting.id)}
 

@@ -5,10 +5,11 @@ from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from cryptography.fernet import Fernet
 from app.config import settings
-from app.models import Application, Company, JobPosting
+from app.database import SessionLocal
+from app.models import Application, Company, JobPosting, SyncJob
 from app.services_imp.LLM import get_llm
 from app.services_imp.pydantic_op_models import EmailClassification, UpdateApplicationFromEmail, AddJobPostingFromEmail
-
+import uuid
 from bs4 import BeautifulSoup
 import re
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
@@ -159,31 +160,31 @@ def normalize_company_name(name: str) -> str:
 def update_application_from_email(db,user_id ,email,classification):
     llm = get_llm()
 
-    
+
     #comp_name = normalize_company_name(email['from'])
     if classification.job_category == "job_application":  
         logging.info(f"Email classified as job application. Extracting application update info for user {user_id}") 
         applications =  db.query(Application).filter(Application.user_id == user_id).all()
-        company_map = {app.id : (app.job_posting.role,app.job_posting.company.name) for app in applications}
+        company_map = {app.id : (app.job_posting.role,app.job_posting.company.name,app.job_posting_id) for app in applications}
+        
         try :
-            llm = llm.with_structured_output(UpdateApplicationFromEmail)
+            llm = llm.with_structured_output(UpdateApplicationFromEmail,method='json_schema',include_raw=False)
             update_data = llm.invoke(
                 f"""
-                Extract the following information about a current job application from the email and by using company_map which maps application IDs to their corresponding company names and roles. :
-                - status: The new status of the application, if applicable
-                - follow_up_date: The follow-up date and time mentioned in the email, in ISO 8601 format. Return null if not mentioned.
-                - Notes: Any additional notes or information extracted from the email that may be relevant to the application. Return null if not applicable.
-                - application ID: The UUID of the matching job application. Use the company_map to find the correct application id based on the company name and role extracted from the email. Return null if not applicable.
-                Here is the email content:
+                Extract the  information about a current job application from the email ,company_map( which maps application IDs to their corresponding company names ,roles and job_posting_ids) and also the list of companies which the user has applied. :
+               Here is the email info :
                 Subject: {email['subject']}
                 Body: {email['body']}
                 Here is the company map: {company_map}
                 """)
+            update_data = UpdateApplicationFromEmail(**update_data)
+            if update_data.application_id  == "<UNKNOWN>":
+               return 
+            logging.info(f"Recieved this data from job application : {update_data}")
         except Exception as e:
             print("Exception:", repr(e))
             print("Error body:", getattr(e, "body", None))
             raise
-        
         application = db.query(Application).filter(Application.id == update_data.application_id).first()
         application.status = update_data.status
         application.follow_up_date = update_data.follow_up_date
@@ -196,20 +197,17 @@ def update_application_from_email(db,user_id ,email,classification):
         try : 
             job_postings = db.query(JobPosting).filter(JobPosting.user_id == user_id).all()
             company_names = [posting.company.name for posting in job_postings]
-            llm = llm.with_structured_output(AddJobPostingFromEmail)
+            llm = llm.with_structured_output(AddJobPostingFromEmail,method='json_schema',include_raw=False)
             update_data = llm.invoke(
                 f"""
-                Extract the following information about a job posting from the email and by using company_names which is a list of company names already present in the user's job postings database :
-                - company_name: The company name extracted from the email of the job posting
-                - role: The role or position extracted from the email
-                - title: The title of the job posting extracted from the email
-                - url: The URL of the job posting extracted from the email
-                - raw_description: The raw description of the job posting extracted from the email
+                Extract all the information about a job posting from the email and by using company_names which is a list of company names already present in the user's job postings database .
                 Here is the list of company names: {company_names}
                 Here is the email content:
                 Subject: {email['subject']}
                 Body: {email['body']}
                 """)
+            logging.info(f"Recieved this data from job posting  LLm{update_data}")
+            update_data = AddJobPostingFromEmail(**update_data)
             company = db.query(Company).filter(Company.user_id == user_id, Company.name == update_data.company_name).first()
             if not company:
                 company = Company(user_id=user_id, name=update_data.company_name)
@@ -234,18 +232,22 @@ def update_application_from_email(db,user_id ,email,classification):
             raise
 
 
-    
+import traceback
+ 
 
-def classify_email(email):
+def classify_email(email:dict)-> EmailClassification:
     logging.info(f"Classifying email: {email['subject']} from {email['from']}")
     llm = get_llm()
+    llm2 = llm.with_structured_output(schema=EmailClassification,method='json_schema',include_raw=False)
+
     try :
-        logging.info(f"Using LLM: {llm}")
-        llm = llm.with_structured_output(EmailClassification)
-        result = llm.invoke(
+        logging.info(f"hello Using LLM: {llm}")
+        logging.info(f"Invoking LLM for classification with email subject: {email['subject']}")
+        result = llm2.invoke(
             f"""
             Determine whether the email is related to a job posting
-            or a job application.
+            or a job application. Note : An email is related to a job posting or job application only if it has a company name and a role.
+            Here is the contents of email : 
             Subject: {email['subject']}
             Body: {email['body']}
             Return job_category as:
@@ -254,11 +256,14 @@ def classify_email(email):
             """
         )
     except Exception as e:
-        print("Exception:", repr(e))
+        logging.info(f"Error during email classification: {repr(e)}")
+        logging.info(f"Error body: {e}")
+        traceback.print_exc()
         print("Error body:", getattr(e, "body", None))
         raise
     logging.info(f"Classification result: {result}")
-    return result
+    logging.info(f"Classification type : {type(result)}")
+    return EmailClassification.model_validate(result)
 
 
 
@@ -291,7 +296,7 @@ def parse_email(msg):
         "snippet": msg.get("snippet", ""),
         "body": extract_email_body_2(extract_email_body(msg.get("payload", {}))),
     }
-
+    
     return email
 
 
@@ -302,9 +307,19 @@ def process_email(db, job, msg):
     logging.info(f"Processing email: {email['subject']} from {email['from']}")
     
     # 2. Classify the email
+
     classification = classify_email(email)
+    logging.info(f"CLASSIFICATION OBJECT TYPE : {type(classification)}")
     if not classification.email_category:
         return 
     update_application_from_email(db, job.user_id, email, classification)
     # 5. Return processing information
     
+
+def mark_job_failed(job_id : uuid.UUID, error_message):
+    logging.error("in mark_job_failed: job_id=%s, error_message=%s", job_id, error_message)
+    db = SessionLocal()
+    job = db.query(SyncJob).filter(SyncJob.id == job_id).first()
+    job.status = "failed"
+    job.error = error_message
+    db.commit()

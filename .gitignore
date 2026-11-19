@@ -13,3 +13,4 @@ Dockerfile
 client_secret.json
 test.py
 Gmail_API_objects.txt
+app\All_Logs.log

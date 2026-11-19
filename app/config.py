@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     # Haiku is deliberate here, not a placeholder: gap analysis is a background
     # batch job, not an interactive chat, so we optimise for cost/throughput
     # over the extra reasoning depth a larger model would give us.
+    GOOGLE_REDIRECT_URI: str
     GOOGLE_CLIENT_ID: str
     GOOGLE_CLIENT_SECRET: str
     ANTHROPIC_MODEL: str = "claude-haiku-4-5-20251001"

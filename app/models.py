@@ -56,7 +56,7 @@ class JobPosting(Base):
     id = Column(GUID(), primary_key=True, default=_uuid)
     user_id = Column(GUID(), ForeignKey("users.id"), nullable=False)
     company_id = Column(GUID(), ForeignKey("companies.id"), nullable=False)
-    title = Column(String(200), nullable=False)
+    title = Column(String(400), nullable=False)
     url = Column(String(500), default="")
     source = Column(String(50), default="manual")  # manual, linkedin, company-site, referral...
     raw_description = Column(Text, nullable=False)  # the JD, pasted in by the user

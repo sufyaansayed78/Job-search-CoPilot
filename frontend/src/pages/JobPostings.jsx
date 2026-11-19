@@ -11,7 +11,8 @@ export function JobPostings() {
   const [postings, setPostings] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [analyses, setAnalyses] = useState({}); // posting id -> GapAnalysisOut
-  const [expandedId, setExpandedId] = useState(null);
+  const [expandedId, setExpandedId] =
+   useState(null);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({ company_id: "", title: "", url: "", source: "manual", raw_description: "" });

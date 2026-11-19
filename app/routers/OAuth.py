@@ -31,12 +31,15 @@ def make_flow():
     )
 
 @router.get("/gmail/connect")
-def connect(user=Depends(get_current_user)):
+def connect(user=Depends(get_current_user), db: Session = Depends(get_db)):
+    cred = db.get(GmailCredential, user.id)
+    if cred and cred.refresh_token_enc:
+        return {"message": "Gmail already connected."}
     flow = make_flow()
     url, state = flow.authorization_url(
-        access_type="offline", prompt="consent", state=sign_state(user.id)
+        access_type="offline", prompt="consent", state=sign_state(str(user.id))
     )
-    return RedirectResponse(url)
+    return {"authorization_url": url}
 
 @router.get("/gmail/callback")
 def callback(code: str, state: str, db: Session = Depends(get_db)):
@@ -46,4 +49,4 @@ def callback(code: str, state: str, db: Session = Depends(get_db)):
     cred = db.get(GmailCredential, user_id) or GmailCredential(user_id=user_id)
     cred.refresh_token_enc = fernet.encrypt(flow.credentials.refresh_token.encode()).decode()
     db.add(cred); db.commit()
-    return RedirectResponse("/applications?gmail=connected")
+    return RedirectResponse("http://localhost:5173/applications?gmail=connected")

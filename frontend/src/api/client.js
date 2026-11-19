@@ -56,6 +56,12 @@ export const api = {
   login: (email, password) =>
     request("/auth/token", { method: "POST", form: { username: email, password }, auth: false }),
   me: () => request("/auth/me"),
+  // Requests a Google authorization URL from FastAPI using the logged-in user's token.
+  connectGmail: () => request("/oauth/gmail/connect"),
+  // Starts a Gmail sync. The backend responds with HTTP 202 and a job_id.
+  startGmailSync: () => request("/services/gmail/sync", { method: "POST" }),
+  // Retrieves the latest state and counters for a previously created sync job.
+  getGmailSyncStatus: (jobId) => request(`/services/gmail/sync/${encodeURIComponent(jobId)}`),
   updateResume: (resume_text) => request("/auth/me/resume", { method: "PUT", body: { resume_text } }),
 
   listCompanies: () => request("/companies/"),

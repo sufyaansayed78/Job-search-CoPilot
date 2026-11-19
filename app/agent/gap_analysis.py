@@ -52,7 +52,6 @@ def _get_llm():
     return ChatAnthropic(
         model=settings.ANTHROPIC_MODEL,
         api_key=settings.ANTHROPIC_API_KEY,
-        temperature=0,
     )
 
 
@@ -64,7 +63,7 @@ def extract_requirements_node(state: AgentState) -> AgentState:
         "experience isn't stated, estimate conservatively from the seniority "
         f"implied by the language.\n\nJob description:\n{state['job_description']}"
     )
-    return {**state, "requirements": result}
+    return {**state, "requirements": ExtractedRequirements(**result)}
 
 
 def compare_to_resume_node(state: AgentState) -> AgentState:
@@ -82,7 +81,7 @@ def compare_to_resume_node(state: AgentState) -> AgentState:
         f"Seniority level: {reqs.seniority_level}\n\n"
         f"Candidate resume:\n{state['resume_text']}"
     )
-    return {**state, "result": result}
+    return {**state, "result": GapAnalysisResult(**result)}
 
 
 def build_graph():
